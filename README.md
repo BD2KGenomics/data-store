@@ -155,20 +155,34 @@ given buckets** before populating them with test fixture data, please ensure the
 
 #### Set up the whitelist
 
-Follow [instructions here](https://github.com/ucsc-cgp/bouncer#setting-up-the-whitelist) to set up the whitelist.
-The convention for naming the whitelist is `commons/DSS_DEPLOYMENT_STAGE/whitelist`, substituting `DSS_DEPLOYMENT_STAGE`
-for its value.
+1. Follow [instructions here](https://github.com/ucsc-cgp/bouncer#setting-up-the-whitelist) to set up the whitelist.
+   The convention for naming the whitelist is `commons/DSS_DEPLOYMENT_STAGE/whitelist`, substituting `DSS_DEPLOYMENT_STAGE`
+   for its value.
 
-Then you will need to add the environment variable `EMAIL_WHITELIST_NAME` to your `environment.local` with the value as
-the name from the previous step. Then run
-```
-source environment
-```
+2. Then you will need to adjust your environment. Copy this snippet and add it to your `environment.local`
 
-Since you are using service account credentials for you local deployment you will need to use the email listed in your
-`gcp-credentials.json` which is long and contains your GCP project ID among other details. This email is also viewable in
-the GCP console under the IAM section. It is the `member` field for the key you downloaded. Put this email address in the
-whitelist you created.
+   ```
+   EXPORT_ENV_VARS_TO_LAMBDA_ARRAY+=(
+       EMAIL_WHITELIST_NAME
+       )
+   ```
+
+   Also add the variable `EMAIL_WHITELIST_NAME` to your `environment.local` with the value as
+   the name from the previous step. For example one might add
+
+   ```
+   EMAIL_WHITELIST_NAME=commons/DSS_DEPLOYMENT_STAGE/whitelist
+   ```
+
+   Then run
+   ```
+   source environment
+   ```
+
+3. Since you are using service account credentials for you local deployment you will need to use the email listed in your
+   `gcp-credentials.json` which is long and contains your GCP project ID among other details. This email is also viewable in
+   the GCP console under the IAM section. It is the `member` field for the key you downloaded. Put this email address in the
+   whitelist you created.
 
 #### Running tests
 
