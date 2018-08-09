@@ -159,19 +159,20 @@ given buckets** before populating them with test fixture data, please ensure the
    The convention for naming the whitelist is `commons/DSS_DEPLOYMENT_STAGE/whitelist`, substituting `DSS_DEPLOYMENT_STAGE`
    for its value.
 
-2. Then you will need to adjust your environment. Copy this snippet and add it to your `environment.local`
+2. Next you will need to adjust your environment. Copy this snippet and add it to your `environment.local`
 
    ```
-   EXPORT_ENV_VARS_TO_LAMBDA_ARRAY+=(
-       EMAIL_WHITELIST_NAME
-       )
+   # only add if it's not already in the list of vars
+   if [[ $EXPORT_ENV_VARS_TO_LAMBDA != *"EMAIL_WHITELIST_NAME"* ]]; then
+     EXPORT_ENV_VARS_TO_LAMBDA+=" EMAIL_WHITELIST_NAME"
+   fi
    ```
 
    Also add the variable `EMAIL_WHITELIST_NAME` to your `environment.local` with the value as
    the name from the previous step. For example one might add
 
    ```
-   EMAIL_WHITELIST_NAME=commons/DSS_DEPLOYMENT_STAGE/whitelist
+   EMAIL_WHITELIST_NAME=commons/${DSS_DEPLOYMENT_STAGE}/whitelist
    ```
 
    Then run
@@ -182,7 +183,7 @@ given buckets** before populating them with test fixture data, please ensure the
 3. Since you are using service account credentials for you local deployment you will need to use the email listed in your
    `gcp-credentials.json` which is long and contains your GCP project ID among other details. This email is also viewable in
    the GCP console under the IAM section. It is the `member` field for the key you downloaded. Put this email address in the
-   whitelist you created.
+   whitelist you created by following [these instructions](https://github.com/ucsc-cgp/bouncer#adding-someone-to-the-whitelist).
 
 #### Running tests
 
