@@ -1,4 +1,6 @@
 import json
+
+import boto3
 import botocore
 from . import clients, resources, cloudwatch_logging
 
@@ -52,3 +54,17 @@ def get_s3_chunk_size(filesize: int) -> int:
         if div * AWS_MAX_MULTIPART_COUNT < filesize:
             div += 1
         return ((div + 1048575) // 1048576) * 1048576
+
+
+def is_s3_encrypted(bucket: str, key: str) -> bool:
+    return not boto3.resource("s3").Object(bucket, key).server_side_encryption is None
+
+
+def waive_s3_checksum_equality(bucket: str, key: str) -> bool:
+    # AWS S3 ETag checksums are not valid indicators of file equality
+    # if server side encryption is enabled.
+    # TODO Before waiving checksum equality, it would be valuable
+    # to have some other indicator of file equality, such as file size.
+    # However, as the code is currently structured, that information
+    # is not available.
+    return is_s3_encrypted(bucket, key)

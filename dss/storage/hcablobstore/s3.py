@@ -1,6 +1,6 @@
 import typing
-
 from . import HCABlobStore
+from dss.util.aws import waive_s3_checksum_equality
 
 
 class S3HCABlobStore(HCABlobStore):
@@ -13,11 +13,14 @@ class S3HCABlobStore(HCABlobStore):
         :param bucket:
         :param key:
         :param metadata:
-        :return: True iff the checksum is correct.
+        :return: True iff the checksum is correct or server side encryption is enabled
         """
         checksum = self.handle.get_cloud_checksum(bucket, key)
         metadata_checksum_key = typing.cast(str, HCABlobStore.MANDATORY_STAGING_METADATA['S3_ETAG']['keyname'])
-        return checksum.lower() == metadata[metadata_checksum_key].lower()
+        if checksum.lower() == metadata[metadata_checksum_key].lower():
+            return True
+        else:
+            return waive_s3_checksum_equality(bucket, key)
 
     def verify_blob_checksum_from_dss_metadata(
             self, bucket: str, key: str, dss_metadata: typing.Dict[str, str]) -> bool:
@@ -28,7 +31,10 @@ class S3HCABlobStore(HCABlobStore):
         :param bucket:
         :param key:
         :param dss_metadata:
-        :return: True iff the checksum is correct.
+        :return: True iff the checksum is correct or server side encryption is enabled
         """
         checksum = self.handle.get_cloud_checksum(bucket, key)
-        return checksum.lower() == dss_metadata["s3-etag"].lower()
+        if checksum.lower() == dss_metadata["s3-etag"].lower():
+            return True
+        else:
+            return waive_s3_checksum_equality(bucket, key)

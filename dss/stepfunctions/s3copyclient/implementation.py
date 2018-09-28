@@ -11,7 +11,7 @@ from cloud_blobstore.s3 import S3BlobStore
 from dss.stepfunctions.lambdaexecutor import TimedThread
 from dss.storage.files import write_file_metadata
 from dss.util import parallel_worker
-from dss.util.aws import get_s3_chunk_size
+from dss.util.aws import get_s3_chunk_size, waive_s3_checksum_equality
 
 
 # CONSTANTS
@@ -196,7 +196,8 @@ def join(event, lambda_context):
     bin_md5 = b"".join([binascii.unhexlify(part.e_tag.strip("\""))
                         for part in parts])
     composite_etag = hashlib.md5(bin_md5).hexdigest() + "-" + str(len(parts))
-    assert composite_etag == state[_Key.SOURCE_ETAG]
+    if composite_etag != state[_Key.SOURCE_ETAG]:
+        assert waive_s3_checksum_equality(state[Key.DESTINATION_BUCKET], state[Key.DESTINATION_KEY])
 
     mpu.complete(MultipartUpload=dict(Parts=parts_list))
     return state
