@@ -62,7 +62,7 @@ fi
 EMAIL_WHITELIST_NAME=commons/staging/whitelist
 
 # Elasticsearch program used to run tests, for example: /home/quokka/git/elasticsearch-5.6.9/bin/elasticsearch
-DSS_TEST_ES_PATH=
+DSS_TEST_ES_PATH=/usr/local/opt/elasticsearch@5.6/bin/elasticsearch
 
 # Add to run Kibana locally, for example: /usr/local/Cellar/kibana/5.5.2/bin/kibana
 DSS_KIBANA_BIN=
