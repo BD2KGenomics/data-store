@@ -7,6 +7,30 @@
     "dev": {
       "api_gateway_stage": "dev",
       "environment_variables": {}
+    },
+    "mbaumann": {
+      "api_gateway_stage": "mbaumann",
+      "tags": {
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-5-ga8ef164-2018-09-28-08-50-27.deploy"
+      },
+      "environment_variables": {
+        "ADMIN_USER_EMAILS": "",
+        "DSS_DEPLOYMENT_STAGE": "mbaumann",
+        "DSS_S3_BUCKET": "mbaumann-dss-dev",
+        "DSS_GS_BUCKET": "mbaumann-dss-dev",
+        "API_DOMAIN_NAME": "hca-dss-4.ucsc-cgp-dev.org",
+        "DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS": "ucsc.edu broadinstitute.org platform-dev-178517.iam.gserviceaccount.com",
+        "DSS_NOTIFICATION_SENDER": "DSS Notifier <mbaumann@ucsc.edu>",
+        "DSS_S3_CHECKOUT_BUCKET": "mbaumann-dss-checkout-mbaumann",
+        "DSS_GS_CHECKOUT_BUCKET": "mbaumann-dss-checkout-mbaumann",
+        "SWAGGER_URL": "https://hca-dss-4.ucsc-cgp-dev.org/v1/swagger.json",
+        "DSS_NOTIFY_DELAYS": "0 60 600 3600 21600 60540 86400 86400 86400 86400 86400 86400",
+        "DSS_NOTIFY_TIMEOUT": "60",
+        "DSS_XRAY_TRACE": "0",
+        "DSS_DEBUG": "0",
+        "EMAIL_WHITELIST_NAME": "commons/mbaumann/whitelist",
+        "DSS_ES_ENDPOINT": "search-dss-index-mbaumann-kv73hnksmup5bsedknrckcys5a.us-west-2.es.amazonaws.com"
+      }
     }
   },
   "version": "2.0",
