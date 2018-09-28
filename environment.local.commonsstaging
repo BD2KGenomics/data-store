@@ -54,6 +54,9 @@ TOKENINFO_URL=https://${API_DOMAIN_NAME}/internal/tokeninfo
 NOTIFY_URL=https://${API_DOMAIN_NAME}/internal/notify
 SWAGGER_URL=https://${API_DOMAIN_NAME}/v1/swagger.json
 
+DSS_XRAY_TRACE=1
+DSS_DEBUG=2
+
 # Setup email whitelist checking
 # only add if it's not already in the list of vars
 if [[ $EXPORT_ENV_VARS_TO_LAMBDA != *"EMAIL_WHITELIST_NAME"* ]]; then
