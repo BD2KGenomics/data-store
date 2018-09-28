@@ -1,0 +1,60 @@
+# HCA DSS environment variables: local configuration file
+
+# Copy this file to environment.local then set your site-specific or deploy-specific environment variable values there.
+# These settings override the values in the "environment" file in this directory.
+# This file is sourced when you run "source environment".
+
+# This file is configured for hca-dss-4.ucsc-cgp-dev.org,
+# which is in the UCSC AWS platform-dev account
+# with the stage name: mbaumann
+# This is currently, and somewhat temporarily, being
+# used as a development test deployment.
+
+set -au
+# Environment variable assignments (var=value) in "set -a" mode are
+# automatically exported.
+DSS_DEPLOYMENT_STAGE=mbaumann
+DSS_NOTIFICATION_SENDER="DSS Notifier <mbaumann@ucsc.edu>"
+AWS_DEFAULT_REGION=us-west-2
+AWS_PROFILE=platform-dev-mbaumann
+GCP_DEFAULT_REGION=us-central1
+DSS_S3_BUCKET=mbaumann-dss-dev
+DSS_S3_BUCKET_TEST=mbaumann-dss-test
+DSS_S3_BUCKET_TEST_FIXTURES=mbaumann-dss-test-fixtures
+DSS_S3_CHECKOUT_BUCKET=mbaumann-dss-checkout-mbaumann
+DSS_S3_CHECKOUT_BUCKET_TEST=mbaumann-dss-checkout-test
+DSS_S3_CHECKOUT_BUCKET_TEST_FIXTURES=mbaumann-dss-checkout-test-fixtures
+DSS_GS_BUCKET=mbaumann-dss-dev
+DSS_GS_BUCKET_REGION=${GCP_DEFAULT_REGION}
+DSS_GS_BUCKET_TEST=mbaumann-dss-test
+DSS_GS_BUCKET_TEST_REGION=${GCP_DEFAULT_REGION}
+DSS_GS_BUCKET_TEST_FIXTURES=mbaumann-dss-test-fixtures
+DSS_GS_BUCKET_TEST_FIXTURES_REGION=${GCP_DEFAULT_REGION}
+DSS_GS_CHECKOUT_BUCKET=mbaumann-dss-checkout-mbaumann
+DSS_GS_CHECKOUT_BUCKET_TEST=mbaumann-dss-checkout-test
+GOOGLE_APPLICATION_CREDENTIALS=/users/mbaumann/.gcp/platform-dev-mbaumann-service-account-key.json
+DSS_ES_DOMAIN="dss-index-${DSS_DEPLOYMENT_STAGE}"
+DSS_TEST_ES_PATH=/usr/local/opt/elasticsearch@5.6/bin/elasticsearch
+API_DOMAIN_NAME=hca-dss-4.ucsc-cgp-dev.org
+TOKENINFO_URL=https://${API_DOMAIN_NAME}/internal/tokeninfo
+NOTIFY_URL=https://${API_DOMAIN_NAME}/internal/notify
+SWAGGER_URL=https://${API_DOMAIN_NAME}/v1/swagger.json
+DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_ARRAY=(
+    ucsc.edu
+    broadinstitute.org
+    platform-dev-178517.iam.gserviceaccount.com
+)
+DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS=${DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_ARRAY[*]}
+DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_TEST=platform-dev-178517.iam.gserviceaccount.com
+EVENT_RELAY_AWS_USERNAME="dss-temp-test-event-relay"
+
+# Setup email whitelist checking
+# only add if it's not already in the list of vars
+if [[ $EXPORT_ENV_VARS_TO_LAMBDA != *"EMAIL_WHITELIST_NAME"* ]]; then
+  EXPORT_ENV_VARS_TO_LAMBDA+=" EMAIL_WHITELIST_NAME"
+fi
+EMAIL_WHITELIST_NAME=commons/${DSS_DEPLOYMENT_STAGE}/whitelist
+
+# Added to run Kibana locally
+DSS_KIBANA_BIN=/usr/local/Cellar/kibana/5.5.2/bin/kibana
+set +au
