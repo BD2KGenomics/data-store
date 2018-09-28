@@ -16,7 +16,7 @@ DSS_NOTIFICATION_SENDER="DSS Notifier <mbaumann@ucsc.edu>"
 # Google Region
 GCP_DEFAULT_REGION=us-central1
 
-# AWS Region
+# AWS Settings
 AWS_DEFAULT_REGION=us-west-2
 AWS_PROFILE=platform-dev-mbaumann
 DSS_S3_BUCKET=commons-dss-commonsdev
@@ -24,18 +24,20 @@ DSS_S3_BUCKET_TEST=commons-dss-test
 DSS_S3_BUCKET_TEST_FIXTURES=commons-dss-test-fixtures
 DSS_S3_CHECKOUT_BUCKET=commons-dss-checkout-commonsdev
 DSS_S3_CHECKOUT_BUCKET_TEST=commons-dss-checkout-test
-DSS_S3_CHECKOUT_BUCKET_TEST_FIXTURES=commons-dss-checkout-test-fixtures
-DSS_GS_BUCKET=commons-dss-commonsdev
-# Google User-Specified Buckets
+# DSS_S3_CHECKOUT_BUCKET_TEST_FIXTURES=commons-dss-checkout-test-fixtures
+
+# GCP Settings
 DSS_GS_BUCKET_REGION=${GCP_DEFAULT_REGION}
 DSS_GS_BUCKET_TEST_REGION=${GCP_DEFAULT_REGION}
+DSS_GS_BUCKET_TEST_FIXTURES_REGION=${GCP_DEFAULT_REGION}
 # Same Names Used in S3
 DSS_GS_BUCKET=${DSS_S3_BUCKET}
 DSS_GS_BUCKET_TEST=${DSS_S3_BUCKET_TEST}
-DSS_GS_BUCKET_TEST_FIXTURES=commons-dss-test-fixtures
-DSS_GS_BUCKET_TEST_FIXTURES_REGION=${GCP_DEFAULT_REGION}
-DSS_GS_CHECKOUT_BUCKET=commons-dss-checkout-commonsdev
-DSS_S3_CHECKOUT_BUCKET_TEST=commons-dss-checkout-test
+DSS_GS_BUCKET_TEST_FIXTURES=${DSS_S3_BUCKET_TEST_FIXTURES}
+DSS_GS_CHECKOUT_BUCKET=${DSS_S3_CHECKOUT_BUCKET}
+DSS_GS_CHECKOUT_BUCKET_TEST=${DSS_S3_CHECKOUT_BUCKET_TEST}
+# DSS_GS_CHECKOUT_BUCKET_TEST_FIXTURES=${DSS_S3_CHECKOUT_BUCKET_TEST_FIXTURES}
+
 GOOGLE_APPLICATION_CREDENTIALS=/users/mbaumann/.gcp/gcp-platform-dev-commons-system-service-account.json
 DSS_ES_DOMAIN="dss-index-${DSS_DEPLOYMENT_STAGE}"
 DSS_TEST_ES_PATH=/usr/local/opt/elasticsearch@5.6/bin/elasticsearch
