@@ -125,7 +125,9 @@ class Config:
 
     @staticmethod
     def _get_native_aws_handle() -> typing.Any:
-        boto_config = botocore.config.Config()
+        # To work with SSE-KMS the signature version must be 's3v4'.
+        # TODO Make signature version configurable(?)
+        boto_config = botocore.config.Config(signature_version='s3v4')
         if Config.BLOBSTORE_CONNECT_TIMEOUT is not None:
             boto_config.connect_timeout = Config.BLOBSTORE_CONNECT_TIMEOUT
         if Config.BLOBSTORE_READ_TIMEOUT is not None:
