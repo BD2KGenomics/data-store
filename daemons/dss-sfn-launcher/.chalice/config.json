@@ -1,8 +1,32 @@
 {
   "version": "2.0",
   "app_name": "dss-sfn-launcher",
-  "dead_letter_queue_target_arn": "",
+  "dead_letter_queue_target_arn": "arn:aws:sqs:us-west-2:719818754276:dss-dlq-commonsdev",
   "stages": {
-    "dev": {}
+    "dev": {},
+    "commonsdev": {
+      "api_gateway_stage": "commonsdev",
+      "tags": {
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-12-g4415003-2018-09-28-11-19-13.deploy"
+      },
+      "environment_variables": {
+        "ADMIN_USER_EMAILS": "",
+        "DSS_DEPLOYMENT_STAGE": "commonsdev",
+        "DSS_S3_BUCKET": "commons-dss-commonsdev",
+        "DSS_GS_BUCKET": "commons-dss-commonsdev",
+        "API_DOMAIN_NAME": "commons-dss.ucsc-cgp-dev.org",
+        "DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS": "ucsc.edu broadinstitute.org platform-dev-178517.iam.gserviceaccount.com",
+        "DSS_NOTIFICATION_SENDER": "DSS Notifier <mbaumann@ucsc.edu>",
+        "DSS_S3_CHECKOUT_BUCKET": "commons-dss-checkout-commonsdev",
+        "DSS_GS_CHECKOUT_BUCKET": "commons-dss-checkout-commonsdev",
+        "SWAGGER_URL": "https://commons-dss.ucsc-cgp-dev.org/v1/swagger.json",
+        "DSS_NOTIFY_DELAYS": "0 60 600 3600 21600 60540 86400 86400 86400 86400 86400 86400",
+        "DSS_NOTIFY_TIMEOUT": "60",
+        "DSS_XRAY_TRACE": "1",
+        "DSS_DEBUG": "2",
+        "EMAIL_WHITELIST_NAME": "commons/dev/whitelist",
+        "DSS_ES_ENDPOINT": "search-dss-index-commonsdev-6d4lqlcbfmnzcbtqrjyvsvq35e.us-west-2.es.amazonaws.com"
+      }
+    }
   }
 }
