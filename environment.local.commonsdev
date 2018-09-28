@@ -51,6 +51,8 @@ DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_ARRAY=(
 DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS=${DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_ARRAY[*]}
 DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS_TEST=platform-dev-178517.iam.gserviceaccount.com
 EVENT_RELAY_AWS_USERNAME="dss-temp-test-event-relay"
+DSS_XRAY_TRACE=1
+DSS_DEBUG=2
 
 # Setup email whitelist checking
 # only add if it's not already in the list of vars
