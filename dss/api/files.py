@@ -196,7 +196,13 @@ def put(uuid: str, json_request_body: dict, version: str=None):
             metadata[keyname] = metadata[keyname].lower()
 
     # what's the target object name for the actual data?
-    dst_key = compose_blob_key(metadata).lower()
+    dst_key = ("blobs/" + ".".join(
+        (
+            metadata['hca-dss-sha256'],
+            metadata['hca-dss-sha1'],
+            metadata['hca-dss-crc32c'],
+        )
+    )).lower()
 
     # does it exist? if so, we can skip the copy part.
     copy_mode = CopyMode.COPY_INLINE
