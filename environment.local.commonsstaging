@@ -17,7 +17,7 @@ GCP_DEFAULT_REGION=us-central1
 
 # AWS Region and Profile
 AWS_DEFAULT_REGION=us-west-2
-AWS_PROFILE=ucsc-cgp-production-platform-admin
+AWS_PROFILE=ucsc-cgp-production-mbaumann
 
 # AWS ElasticSearch Configuration
 DSS_ES_INSTANCE_TYPE=m4.large.elasticsearch

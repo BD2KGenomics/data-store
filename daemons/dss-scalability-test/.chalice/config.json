@@ -13,7 +13,7 @@
     "commonsstaging": {
       "api_gateway_stage": "commonsstaging",
       "tags": {
-        "DSS_DEPLOY_ORIGIN": "mbaumann-eduroam-169-233-215-64.ucsc.edu-integration-2018-07-01-16-41-28.release-3-g8ee5f3c-2018-08-31-00-25-02.deploy"
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-12-g64c7dbc-2018-10-01-01-01-56.deploy"
       },
       "environment_variables": {
         "ADMIN_USER_EMAILS": "",
@@ -21,17 +21,41 @@
         "DSS_S3_BUCKET": "commons-dss-commonsstaging",
         "DSS_GS_BUCKET": "commons-dss-commonsstaging",
         "API_DOMAIN_NAME": "commons-dss.ucsc-cgp.org",
-        "DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS": "ucsc.edu broadinstitute.org platform-dev-178517.iam.gserviceaccount.com",
+        "DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS": "chanzuckerberg.com ucsc.edu broadinstitute.org ebi.ac.uk human-cell-atlas-travis-test.iam.gserviceaccount.com broad-dsde-mint-dev.iam.gserviceaccount.com broad-dsde-mint-test.iam.gserviceaccount.com broad-dsde-mint-staging.iam.gserviceaccount.com",
         "DSS_NOTIFICATION_SENDER": "DSS Notifier <mbaumann@ucsc.edu>",
         "DSS_S3_CHECKOUT_BUCKET": "commons-dss-checkout-commonsstaging",
         "DSS_GS_CHECKOUT_BUCKET": "commons-dss-checkout-commonsstaging",
         "SWAGGER_URL": "https://commons-dss.ucsc-cgp.org/v1/swagger.json",
         "DSS_NOTIFY_DELAYS": "0 60 600 3600 21600 60540 86400 86400 86400 86400 86400 86400",
         "DSS_NOTIFY_TIMEOUT": "60",
-        "DSS_XRAY_TRACE": "0",
-        "DSS_DEBUG": "0",
+        "DSS_XRAY_TRACE": "1",
+        "DSS_DEBUG": "2",
         "EMAIL_WHITELIST_NAME": "commons/staging/whitelist",
         "DSS_ES_ENDPOINT": "search-dss-index-commonsstaging-umpfdpphkpmtiwkuojfyjuko6a.us-west-2.es.amazonaws.com"
+      }
+    },
+    "commonsdev": {
+      "api_gateway_stage": "commonsdev",
+      "tags": {
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-12-g64c7dbc-2018-09-28-14-07-35.deploy"
+      },
+      "environment_variables": {
+        "ADMIN_USER_EMAILS": "",
+        "DSS_DEPLOYMENT_STAGE": "commonsdev",
+        "DSS_S3_BUCKET": "commons-dss-commonsdev",
+        "DSS_GS_BUCKET": "commons-dss-commonsdev",
+        "API_DOMAIN_NAME": "commons-dss.ucsc-cgp-dev.org",
+        "DSS_SUBSCRIPTION_AUTHORIZED_DOMAINS": "ucsc.edu broadinstitute.org platform-dev-178517.iam.gserviceaccount.com",
+        "DSS_NOTIFICATION_SENDER": "DSS Notifier <mbaumann@ucsc.edu>",
+        "DSS_S3_CHECKOUT_BUCKET": "commons-dss-checkout-commonsdev",
+        "DSS_GS_CHECKOUT_BUCKET": "commons-dss-checkout-commonsdev",
+        "SWAGGER_URL": "https://commons-dss.ucsc-cgp-dev.org/v1/swagger.json",
+        "DSS_NOTIFY_DELAYS": "0 60 600 3600 21600 60540 86400 86400 86400 86400 86400 86400",
+        "DSS_NOTIFY_TIMEOUT": "60",
+        "DSS_XRAY_TRACE": "1",
+        "DSS_DEBUG": "2",
+        "EMAIL_WHITELIST_NAME": "commons/dev/whitelist",
+        "DSS_ES_ENDPOINT": "search-dss-index-commonsdev-6d4lqlcbfmnzcbtqrjyvsvq35e.us-west-2.es.amazonaws.com"
       }
     }
   },
