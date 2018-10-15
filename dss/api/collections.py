@@ -84,6 +84,14 @@ class hashabledict(dict):
 
 @dss_handler
 def patch(uuid: str, json_request_body: dict, replica: str, version: str):
+    try:
+        iso8601.parse_date(version)
+    except iso8601.ParseError:
+        raise DSSException(
+            requests.codes.bad_request,
+            "illegal_version",
+            f"version should be an rfc3339-compliant timestamp")
+
     authenticated_user_email = request.token_info['email']
 
     uuid = uuid.lower()
@@ -143,13 +151,18 @@ def get_json_metadata(entity_type: str, uuid: str, version: str, replica: Replic
         # TODO: verify that file is a metadata file
         size = blobstore_handle.get_size(replica.bucket, key)
         if size > MAX_METADATA_SIZE:
-            raise DSSException(422, "invalid_link",
-                               "The file UUID {} refers to a file that is too large to process".format(uuid))
+            raise DSSException(
+                requests.codes.unprocessable_entity,
+                "invalid_link",
+                "The file UUID {} refers to a file that is too large to process".format(uuid))
         return json.loads(blobstore_handle.get(
             replica.bucket,
             "{}s/{}.{}".format(entity_type, uuid, version)))
     except BlobNotFoundError as ex:
-        raise DSSException(404, "invalid_link", "Could not find file for UUID {}".format(uuid))
+        raise DSSException(
+            requests.codes.unprocessable_entity,
+            "invalid_link",
+            "Could not find file for UUID {}".format(uuid))
 
 def resolve_content_item(replica: Replica, blobstore_handle: BlobStore, item: dict):
     try:
@@ -169,7 +182,7 @@ def resolve_content_item(replica: Replica, blobstore_handle: BlobStore, item: di
         raise
     except Exception as e:
         raise DSSException(
-            422,
+            requests.codes.unprocessable_entity,
             "invalid_link",
             'Error while parsing the link "{}": {}: {}'.format(item, type(e).__name__, e)
         )

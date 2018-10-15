@@ -1,4 +1,3 @@
-import datetime
 import json
 import re
 import time
@@ -9,16 +8,17 @@ from uuid import uuid4
 import iso8601
 import requests
 from cloud_blobstore import BlobAlreadyExistsError, BlobNotFoundError
+from dcplib.s3_multipart import AWS_MIN_CHUNK_SIZE
 from flask import jsonify, make_response, redirect, request
 
 from dss import DSSException, dss_handler, stepfunctions
 from dss.config import Config, Replica
-from dss.storage.checkout import CheckoutTokenKeys, get_dst_key, start_file_checkout
+from dss.storage.checkout import CheckoutTokenKeys
+from dss.storage.checkout.file import get_dst_key, start_file_checkout
 from dss.storage.files import write_file_metadata
 from dss.storage.hcablobstore import FileMetadata, HCABlobStore, compose_blob_key
 from dss.stepfunctions import gscopyclient, s3copyclient
 from dss.util import tracing, UrlBuilder
-from dss.util.aws import AWS_MIN_CHUNK_SIZE
 from dss.util.version import datetime_to_version_format
 
 
@@ -28,10 +28,6 @@ ASYNC_COPY_THRESHOLD = AWS_MIN_CHUNK_SIZE
 """The retry-after interval in seconds. Sets up downstream libraries / users to
 retry request after the specified interval."""
 RETRY_AFTER_INTERVAL = 10
-
-"""Probability of the 301 redirect with Retry-After header. This is a temporary measure, sets up downstream
-libraries / users for success when we start integrating this with the checkout service. """
-REDIRECT_PROBABILITY_PERCENTS = 5
 
 
 @dss_handler
@@ -143,18 +139,23 @@ def _verify_checkout(
 
 
 @dss_handler
-def put(uuid: str, json_request_body: dict, version: str=None):
+def put(uuid: str, json_request_body: dict, version: str):
     class CopyMode(Enum):
         NO_COPY = auto()
         COPY_INLINE = auto()
         COPY_ASYNC = auto()
 
     uuid = uuid.lower()
-    if version is not None:
-        # convert it to date-time so we can format exactly as the system requires (with microsecond precision)
+
+    # convert it to date-time so we can format exactly as the system requires (with microsecond precision)
+    try:
         timestamp = iso8601.parse_date(version)
-    else:
-        timestamp = datetime.datetime.utcnow()
+    except iso8601.ParseError:
+        raise DSSException(
+            requests.codes.bad_request,
+            "illegal_version",
+            f"version should be an rfc3339-compliant timestamp")
+
     version = datetime_to_version_format(timestamp)
 
     source_url = json_request_body['source_url']

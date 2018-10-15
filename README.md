@@ -1,3 +1,7 @@
+[![](https://img.shields.io/badge/slack-%23data--store-557EBF.svg)](https://humancellatlas.slack.com/messages/data-store/)
+[![Build Status](https://travis-ci.com/HumanCellAtlas/data-store.svg?branch=master)](https://travis-ci.com/HumanCellAtlas/data-store)
+[![codecov](https://codecov.io/gh/HumanCellAtlas/data-store/branch/master/graph/badge.svg)](https://codecov.io/gh/HumanCellAtlas/data-store)
+
 # HCA DSS: The Human Cell Atlas Data Storage System
 
 This repository contains design specs and prototypes for the replicated data storage system (aka the "blue box") of
@@ -197,48 +201,16 @@ Run `make test` in the top-level `data-store` directory.
 Assuming the tests have passed above, the next step is to manually deploy. See the section below for information on
 CI/CD with Travis if continuous deployment is your goal.
 
-The AWS Elasticsearch Service is used for metadata indexing. Currently, the AWS Elasticsearch Service must be configured
-manually.
+The AWS Elasticsearch Service is used for metadata indexing. For typical development deployments the
+t2.small.elasticsearch instance type is sufficient.
 
-* The domain name must either:
-  * have the value `dss-index-$DSS_DEPLOYMENT_STAGE`
-  * or, the environment variable `DSS_ES_DOMAIN` must be set to the domain name of the AWS Elasticsearch Service instance
-  to be used.
-* For typical development deployments the t2.small.elasticsearch instance type is more than sufficient.
-* Must be Elasticsearch 5.* instead of 6.*.
-
+An AWS route53 zone must be available for your domain name and configured in `environment`.
 
 Now deploy using make:
 
+    make deploy-infra
     make deploy
 
-Set up AWS API Gateway. The gateway is automatically set up for you and associated with the Lambda. However, to get a
-friendly domain name, you need to follow the
-directions [here](http://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-custom-domains.html). In summary:
-
-1.  Generate a HTTPS certificate via AWS Certificate Manager (ACM). See note below on choosing a region for the
-    certificate.
-
-2.  Set up the custom domain name in the API gateway console. See note below on the DNS record type.
-
-3.  In Amazon Route 53 point the domain to the API gateway
-
-4.  In the API Gateway, fill in the endpoints for the custom domain name e.g. Path=`/`, Destination=`dss` and
-    `dev`. These might be different based on the profile used (dev, stage, etc).
-
-5.  Set the environment variable `API_DOMAIN_NAME` to your domain name in the `environment.local` file.
-
-Note: The certificate should be in the same region as the API gateway or, if that's not possible, in `us-east-1`. If the
-ACM certificate's region is `us-east-1` and the API gateway is in another region, the type of the custom domain name
-must be *Edge Optimized*. Provisioning such a domain name typically takes up to 40 minutes because the certificate needs
-to be replicated to all involved CloudFront edge servers. The corresponding record set in Route 53 needs to be an
-**alias** A record, not a CNAME or a regular A record, and it must point to the CloudFront host name associated with the
-edge-optimized domain name. Starting November 2017, API gateway supports regional certificates i.e., certificates in
-regions other than `us-east-1`. This makes it possible to match the certificate's region with that of the API
-gateway. and cuts the provisioning of the custom domain name down to seconds. Simply create the certificate in the same
-region as that of the API gateway, create a custom domain name of type *Regional* and in Route53 add a CNAME recordset
-that points to the gateway's canonical host name.
- 
 If successful, you should be able to see the Swagger API documentation at:
 
     https://<domain_name>
@@ -262,33 +234,34 @@ of CLI use:
     # list bundles
     hca dss post-search --es-query "{}" --replica=aws | less
     # upload full bundle
-    hca dss upload --replica aws --staging-bucket staging_bucket_name --src-dir data-bundle-examples/smartseq2/paired_ends
+    hca dss upload --replica aws --staging-bucket staging_bucket_name --src-dir ${DSS_HOME}/tests/fixtures/datafiles/example_bundle
 
 #### Checking Indexing
 
 Now that you've uploaded data, the next step is to confirm the indexing is working properly and you can query the
 indexed metadata.
 
-    hca post-search --query '
+    hca dss post-search --replica aws --es-query '
     {
         "query": {
             "bool": {
                 "must": [{
                     "match": {
-                        "files.sample_json.donor.species": "Homo sapiens"
+                        "files.donor_organism_json.medical_history.smoking_history": "yes"
                     }
                 }, {
                     "match": {
-                        "files.assay_json.single_cell.method": "Fluidigm C1"
+                        "files.specimen_from_organism_json.genus_species.text": "Homo sapiens"
                     }
                 }, {
                     "match": {
-                        "files.sample_json.ncbi_biosample": "SAMN04303778"
+                        "files.specimen_from_organism_json.organ.text": "brain"
                     }
                 }]
             }
         }
-    }'
+    }
+'
 
 #### CI/CD with Travis CI
 
@@ -315,7 +288,15 @@ outside of AWS. Run `scripts/create_config_aws_event_relay_user.py` to create an
 restricted access policy. This script also creates the user access key and stores it in an AWS Secrets Manager
 store.
 
-#### Managing dependencies
+#### Daemons
+
+Several DSS components are deployed seperately as daemons, found in `$DSS_HOME/daemons`. Daemon deployment may incorperate
+dependent infrastructure, such SQS queues or SNS topics, by placing Terraform files in daemon directory, e.g.
+`$DSS_HOME/daemons/dss-admin/my_queue_defs.tf`. This infrastructure is deployed non-interactively, without the
+usual plan/review Terraform workflow, and should therefore be lightweight in nature. Large infrastructure should be
+added to `$DSS_HOME/infra` instead.
+
+####Managing dependencies
 
 The direct runtime dependencies of this project are defined in `requirements.txt.in`. Direct development dependencies
 are defined in `requirements-dev.txt.in`. All dependencies, direct and transitive, are defined in the corresponding
@@ -391,6 +372,6 @@ AWS Xray tracing is used for profiling the performance of deployed lambdas. This
 setting the lambda environment variable `DSS_XRAY_TRACE=1`. For all other daemons you must also check 
 "Enable active tracking" under "Debugging and error handling" in the AWS Lambda console.
 
-[![](https://img.shields.io/badge/slack-%23data--store-557EBF.svg)](https://humancellatlas.slack.com/messages/data-store/)
-[![Build Status](https://travis-ci.com/HumanCellAtlas/data-store.svg?branch=master)](https://travis-ci.com/HumanCellAtlas/data-store)
-[![codecov](https://codecov.io/gh/HumanCellAtlas/data-store/branch/master/graph/badge.svg)](https://codecov.io/gh/HumanCellAtlas/data-store)
+
+#### Contributing
+External contributions are welcome. Please review the [Contributing Guidelines](CONTRIBUTING.md)

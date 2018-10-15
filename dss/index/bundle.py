@@ -1,12 +1,13 @@
 import json
+import string
 import logging
-from typing import Mapping, Optional, Set
+from typing import Dict, Mapping, Optional, Set, List, Tuple
 
 from cloud_blobstore import BlobNotFoundError, BlobStoreError
 
 from dss import Config, Replica
 from dss.storage.hcablobstore import BundleFileMetadata, BundleMetadata, compose_blob_key
-from dss.storage.identifiers import BundleFQID, ObjectIdentifier, TombstoneID
+from dss.storage.identifiers import BundleFQID, ObjectIdentifier, BundleTombstoneID
 from dss.util.types import JSON
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class Bundle:
     instance of this class.
     """
 
-    def __init__(self, replica: Replica, fqid: BundleFQID, manifest: JSON, files: Mapping[str, JSON]) -> None:
+    def __init__(self, replica: Replica, fqid: BundleFQID, manifest: JSON, files: List[Tuple[str, JSON]]) -> None:
         self.replica = replica
         self.fqid = fqid
         self.manifest = manifest
@@ -45,9 +46,9 @@ class Bundle:
         return manifest
 
     @classmethod
-    def _read_file_infos(cls, replica: Replica, fqid: BundleFQID, manifest: JSON) -> Mapping[str, JSON]:
+    def _read_file_infos(cls, replica: Replica, fqid: BundleFQID, manifest: JSON) -> List[Tuple[str, JSON]]:
         handle = Config.get_blobstore_handle(replica)
-        index_files = {}
+        index_files: List[Tuple[str, JSON]] = list()
         file_infos = manifest[BundleMetadata.FILES]
         assert isinstance(file_infos, list)
         for file_info in file_infos:
@@ -69,7 +70,7 @@ class Bundle:
                                        f"not be parsed. This file will not be indexed. Exception: {ex}")
                     else:
                         logger.debug(f"Loaded file: {file_name}")
-                        index_files[file_name] = file_json
+                        index_files.append((file_name, file_json))
                 else:
                     logger.warning(f"In bundle {fqid} the file '{file_name}' is marked for indexing yet has "
                                    f"content type '{content_type}' instead of the required content type "
@@ -97,13 +98,13 @@ class Tombstone:
     A tombstone is a storage object whose FQID matches that of a given single bundle or all bundles for a given UUID.
     Bundles for which there is a tombstone must be omitted from the index.
     """
-    def __init__(self, replica: Replica, fqid: TombstoneID, body: JSON) -> None:
+    def __init__(self, replica: Replica, fqid: BundleTombstoneID, body: JSON) -> None:
         self.replica = replica
         self.fqid = fqid
         self.body = body
 
     @classmethod
-    def load(cls, replica: Replica, tombstone_id: TombstoneID):
+    def load(cls, replica: Replica, tombstone_id: BundleTombstoneID):
         blobstore = Config.get_blobstore_handle(replica)
         bucket_name = replica.bucket
         body = json.loads(blobstore.get(bucket_name, tombstone_id.to_key()))
@@ -113,10 +114,10 @@ class Tombstone:
     def list_dead_bundles(self) -> Set[BundleFQID]:
         blobstore = Config.get_blobstore_handle(self.replica)
         bucket_name = self.replica.bucket
-        assert isinstance(self.fqid, TombstoneID)
+        assert isinstance(self.fqid, BundleTombstoneID)
         if self.fqid.is_fully_qualified():
             # If a version is specified, return just that bundle …
-            return {self.fqid.to_bundle_fqid()}
+            return {self.fqid.to_fqid()}
         else:
             # … otherwise, return all bundles with the same UUID from the index.
             prefix = self.fqid.to_key_prefix()

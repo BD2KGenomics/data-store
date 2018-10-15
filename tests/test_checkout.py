@@ -19,15 +19,25 @@ from dss.config import override_bucket_config, BucketConfig, Replica, Config
 from dss.util import UrlBuilder
 from dss.util.version import datetime_to_version_format
 from dss.storage.checkout import (
-    CheckoutStatus,
-    ValidationEnum,
-    get_dst_key,
-    get_execution_id,
-    get_manifest_files,
     pre_exec_validate,
-    validate_bundle_exists,
     validate_file_dst,
     touch_test_file,
+)
+from dss.storage.checkout.bundle import (
+    get_bundle_checkout_status,
+    get_manifest_files,
+    mark_bundle_checkout_failed,
+    mark_bundle_checkout_started,
+    mark_bundle_checkout_successful,
+)
+from dss.storage.checkout.common import get_execution_id
+from dss.storage.checkout.error import (
+    BundleNotFoundError,
+    DestinationBucketNotFoundError,
+    DestinationBucketNotWritableError,
+)
+from dss.storage.checkout.file import (
+    get_dst_key,
     start_file_checkout,
 )
 from dss.storage.hcablobstore import BundleMetadata, compose_blob_key
@@ -104,7 +114,12 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
             bucket = get_env("DSS_GS_BUCKET_TEST_FIXTURES")
         return bucket
 
-    @testmode.integration
+    def get_checkout_unwriteable_bucket(self, replica: Replica) -> str:
+        if replica == Replica.aws:
+            return get_env("DSS_S3_CHECKOUT_BUCKET_UNWRITABLE")
+        raise ValueError(f"No support for unwritable buckets for replica {replica.name}")
+
+    @testmode.standalone
     def test_pre_execution_check_doesnt_exist(self):
         for replica in Replica:
             non_existent_bundle_uuid = str(uuid.uuid4())
@@ -123,7 +138,7 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
             )
             self.assertEqual(resp_obj.json['code'], 'not_found')
 
-    @testmode.integration
+    @testmode.standalone
     def test_sanity_check_no_replica(self):
         for replica in Replica:
             request_body = {"destination": replica.checkout_bucket}
@@ -158,10 +173,10 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         return execution_id
 
     @testmode.integration
-    def test_status_success(self):
+    def test_checkout_success(self):
         for replica in Replica:
             execution_id = self.launch_checkout(replica.checkout_bucket, replica)
-            CheckoutStatus.mark_bundle_checkout_started(execution_id, replica, replica.checkout_bucket)
+            mark_bundle_checkout_started(execution_id, replica, replica.checkout_bucket)
 
             url = str(UrlBuilder().set(path="/v1/bundles/checkout/" + execution_id).add_query("replica", replica.name))
 
@@ -174,16 +189,16 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
                 status = resp_obj.json.get('status')
                 if status not in ("RUNNING", "SUCCEEDED"):
                     raise Exception(f"Unexpected status {status}")
-                self.assertEqual(status, "SUCCEEDED")
+                self.assertEqual(status, "SUCCEEDED", f"execution {execution_id} not at expected state")
 
             check_status()
 
     @testmode.integration
-    def test_status_fail(self):
+    def test_checkout_fail(self):
         nonexistent_bucket_name = str(uuid.uuid4())
         for replica in Replica:
             execution_id = self.launch_checkout(nonexistent_bucket_name, replica)
-            CheckoutStatus.mark_bundle_checkout_started(execution_id, replica, replica.checkout_bucket)
+            mark_bundle_checkout_started(execution_id, replica, replica.checkout_bucket)
 
             url = str(UrlBuilder().set(path="/v1/bundles/checkout/" + execution_id).add_query("replica", replica.name))
 
@@ -196,7 +211,7 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
                 status = resp_obj.json.get('status')
                 if status not in ("RUNNING", "FAILED"):
                     raise Exception(f"Unexpected status {status}")
-                self.assertEqual(status, "FAILED")
+                self.assertEqual(status, "FAILED", f"execution {execution_id} not at expected state")
 
             check_status()
 
@@ -260,35 +275,33 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
             self.assertEquals(validate_file_dst(replica, bucket, dst_key), True)
 
     @testmode.standalone
-    def test_validate_wrong_key(self):
-        nonexistent_bundle_uuid = str(uuid.uuid4())
-        nonexistent_bundle_version = datetime_to_version_format(datetime.datetime.utcnow())
-        for replica in Replica:
-            valid, cause = pre_exec_validate(replica, replica.bucket, replica.checkout_bucket, nonexistent_bundle_uuid,
-                                             nonexistent_bundle_version)
-            self.assertIs(valid, ValidationEnum.WRONG_BUNDLE_KEY)
-
-    @testmode.standalone
     def test_validate(self):
         for replica in Replica:
-            valid, cause = pre_exec_validate(replica, replica.bucket, replica.checkout_bucket, self.bundle_uuid,
-                                             self.bundle_version)
-            self.assertIs(valid, ValidationEnum.PASSED)
-
-    @testmode.standalone
-    def test_validate_bundle_exists(self):
-        for replica in Replica:
-            valid, cause = validate_bundle_exists(replica, replica.bucket, self.bundle_uuid, self.bundle_version)
-            self.assertIs(valid, ValidationEnum.PASSED)
+            pre_exec_validate(replica, replica.bucket, replica.checkout_bucket, self.bundle_uuid, self.bundle_version)
 
     @testmode.standalone
     def test_validate_bundle_exists_fail(self):
         nonexistent_bundle_uuid = str(uuid.uuid4())
         nonexistent_bundle_version = datetime_to_version_format(datetime.datetime.utcnow())
         for replica in Replica:
-            valid, cause = validate_bundle_exists(replica, self.get_test_fixture_bucket(replica),
-                                                  nonexistent_bundle_uuid, nonexistent_bundle_version)
-            self.assertIs(valid, ValidationEnum.WRONG_BUNDLE_KEY)
+            with self.assertRaises(BundleNotFoundError):
+                pre_exec_validate(replica, self.get_test_fixture_bucket(replica), replica.checkout_bucket,
+                                  nonexistent_bundle_uuid, nonexistent_bundle_version)
+
+    @testmode.standalone
+    def test_validate_bucket_exists_fail(self):
+        nonexistent_bucket = str(uuid.uuid4())
+        for replica in Replica:
+            with self.assertRaises(DestinationBucketNotFoundError):
+                pre_exec_validate(replica, replica.bucket, nonexistent_bucket, self.bundle_uuid, self.bundle_version)
+
+    @testmode.standalone
+    def test_validate_bucket_writable_fail(self):
+        # only AWS supports buckets that can be created by terraform that are inaccessible to self.
+        replica = Replica.aws
+        with self.assertRaises(DestinationBucketNotWritableError):
+            pre_exec_validate(replica, replica.bucket, self.get_checkout_unwriteable_bucket(replica),
+                              self.bundle_uuid, self.bundle_version)
 
     @testmode.standalone
     def test_touch_file(self):
@@ -311,9 +324,9 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         exec_id = get_execution_id()
         self.assertIsNotNone(exec_id)
         for replica in Replica:
-            CheckoutStatus.mark_bundle_checkout_successful(
+            mark_bundle_checkout_successful(
                 exec_id, replica, replica.checkout_bucket, fake_bucket_name, fake_location)
-            status = CheckoutStatus.get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
+            status = get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
             self.assertEquals(status['status'], "SUCCEEDED")
             self.assertEquals(status['location'], f"{replica.storage_schema}://{fake_bucket_name}/{fake_location}")
 
@@ -323,8 +336,8 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         self.assertIsNotNone(exec_id)
         cause = 'Fake cause'
         for replica in Replica:
-            CheckoutStatus.mark_bundle_checkout_failed(exec_id, replica, replica.checkout_bucket, cause)
-            status = CheckoutStatus.get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
+            mark_bundle_checkout_failed(exec_id, replica, replica.checkout_bucket, cause)
+            status = get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
             self.assertEquals(status['status'], "FAILED")
             self.assertEquals(status['cause'], cause)
 
@@ -333,8 +346,8 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         exec_id = get_execution_id()
         self.assertIsNotNone(exec_id)
         for replica in Replica:
-            CheckoutStatus.mark_bundle_checkout_started(exec_id, replica, replica.checkout_bucket)
-            status = CheckoutStatus.get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
+            mark_bundle_checkout_started(exec_id, replica, replica.checkout_bucket)
+            status = get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
             self.assertEquals(status['status'], "RUNNING")
 
     @testmode.standalone
@@ -343,7 +356,7 @@ class TestCheckoutApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         self.assertIsNotNone(exec_id)
         for replica in Replica:
             with self.assertRaises(BlobNotFoundError):
-                CheckoutStatus.get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
+                get_bundle_checkout_status(exec_id, replica, replica.checkout_bucket)
 
 
 if __name__ == "__main__":

@@ -6,15 +6,15 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 from google.cloud.storage import Client
 
-from dss.util.aws import get_s3_chunk_size
-from .checksumming_io.checksumming_io import ChecksummingSink
+from dcplib.s3_multipart import MULTIPART_THRESHOLD, get_s3_multipart_chunk_size
+from dcplib.checksumming_io import ChecksummingSink
 
 
 logger = logging.getLogger(__name__)
 
 
 class Uploader:
-    def __init__(self, local_root: str) -> None:
+    def __init__(self, local_root: str, *args, **kwargs) -> None:
         self.local_root = local_root
 
     def reset(self) -> None:
@@ -42,7 +42,10 @@ class Uploader:
         if metadata is None:
             metadata = dict()
 
-        with ChecksummingSink() as sink, open(os.path.join(self.local_root, local_path), "rb") as fh:
+        fpath = os.path.join(self.local_root, local_path)
+        size = os.path.getsize(fpath)
+        chunk_size = get_s3_multipart_chunk_size(size)
+        with ChecksummingSink(write_chunk_size=chunk_size) as sink, open(fpath, "rb") as fh:
             data = fh.read()
             sink.write(data)
 
@@ -84,9 +87,9 @@ class S3Uploader(Uploader):
         fp = os.path.join(self.local_root, local_path)
         sz = os.stat(fp).st_size
 
-        chunk_sz = get_s3_chunk_size(sz)
+        chunk_sz = get_s3_multipart_chunk_size(sz)
         transfer_config = TransferConfig(
-            multipart_threshold=64 * 1024 * 1024,
+            multipart_threshold=MULTIPART_THRESHOLD,
             multipart_chunksize=chunk_sz,
         )
 

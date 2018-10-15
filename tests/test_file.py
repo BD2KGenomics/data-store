@@ -15,10 +15,9 @@ pkg_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))  # noq
 sys.path.insert(0, pkg_root)  # noqa
 
 import dss
-from dss.api.files import RETRY_AFTER_INTERVAL
+from dss.api.files import ASYNC_COPY_THRESHOLD, RETRY_AFTER_INTERVAL
 from dss.config import BucketConfig, override_bucket_config, Replica
 from dss.util import UrlBuilder
-from dss.util.aws import AWS_MIN_CHUNK_SIZE
 from dss.util.version import datetime_to_version_format
 from tests import eventually
 from tests.fixtures.cloud_uploader import GSUploader, S3Uploader, Uploader
@@ -68,56 +67,117 @@ class TestFileApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         bundle_uuid = str(uuid.uuid4())
         version = datetime_to_version_format(datetime.datetime.utcnow())
 
-        # should be able to do this twice (i.e., same payload, different UUIDs)
-        self.upload_file(source_url, file_uuid, bundle_uuid=bundle_uuid, version=version)
-        self.upload_file(source_url, str(uuid.uuid4()))
+        with self.subTest(f"{replica}: Created returned when uploading a file with a unique payload, and FQID"):
+            self.upload_file(source_url, file_uuid, bundle_uuid=bundle_uuid, version=version)
 
-        # should be able to do this twice (i.e., same payload, same UUIDs)
-        self.upload_file(source_url, file_uuid, bundle_uuid=bundle_uuid,
-                         version=version, expected_code=requests.codes.ok)
+        with self.subTest(f"{replica}: Created returned when uploading a file with same payload, and different FQID"):
+            self.upload_file(source_url, str(uuid.uuid4()))
 
-        # should be able to do this twice (i.e., different payload, same UUIDs)
-        self.upload_file(source_url, file_uuid, version=version, expected_code=requests.codes.ok)
+        with self.subTest(f"{replica}: OK returned when uploading a file with the same payload, UUID,  version"):
+            self.upload_file(source_url, file_uuid, bundle_uuid=bundle_uuid,
+                             version=version, expected_code=requests.codes.ok)
+
+        with self.subTest(f"{replica}: Conflict returned when uploading a file with a different payload and same FQID"):
+            src_key_temp = generate_test_key()
+            src_data_temp = os.urandom(128)
+            with tempfile.NamedTemporaryFile(delete=True) as fh:
+                fh.write(src_data_temp)
+                fh.flush()
+
+                uploader.checksum_and_upload_file(fh.name, src_key_temp, "text/plain")
+
+            source_url_temp = f"{scheme}://{test_bucket}/{src_key_temp}"
+            self.upload_file(source_url_temp, file_uuid, version=version, expected_code=requests.codes.conflict)
+
+        with self.subTest(f"{replica}: Bad returned when uploading a file with an invalid version"):
+            self.upload_file(source_url, file_uuid, version='', expected_code=requests.codes.bad_request)
+
+        invalid_version = 'ABCD'
+        with self.subTest(f"{replica}: bad_request returned "
+                          f"when uploading a file with invalid version {invalid_version}"):
+            self.upload_file(source_url, file_uuid, version=invalid_version, expected_code=requests.codes.bad_request)
+
+        with self.subTest(f"{replica}: Bad returned when uploading a file without a version"):
+            self.upload_file(source_url, file_uuid, version='missing', expected_code=requests.codes.bad_request)
+
+        invalid_uuids = ['ABCD', '1234']
+        for invalid_uuid in invalid_uuids:
+            with self.subTest(f"{replica}: Bad returned "
+                              f"when uploading a file with invalid UUID {invalid_uuid}"):
+                self.upload_file(source_url, invalid_uuid, expected_code=requests.codes.bad_request)
+
+        with self.subTest(f"{replica}: forbidden returned "
+                          f"when uploading a file with without UUID {invalid_uuid}"):
+            self.upload_file(source_url, '', expected_code=requests.codes.forbidden)
+
+    @staticmethod
+    def _upload_file_to_mock_ingest(
+            uploader_class: typing.Type[Uploader],
+            bucket: str,
+            key: str,
+            data: bytes) -> None:
+        tempdir = tempfile.gettempdir()
+        uploader = uploader_class(tempdir, bucket)
+        with tempfile.NamedTemporaryFile(delete=True) as fh:
+            fh.write(data)
+            fh.flush()
+
+            uploader.checksum_and_upload_file(fh.name, key, "text/plain")
+
+    @testmode.standalone
+    def test_file_put_large_sync(self):
+        """Test PUT /files with the largest file that is copied synchronously."""
+        test_data = os.urandom(ASYNC_COPY_THRESHOLD)
+        self._test_file_put_large(test_data[:-1])
+        self._test_file_put_large(test_data)
 
     @testmode.integration
-    def test_file_put_large(self):
+    def test_file_put_large_async(self):
+        """Test PUT /files with the smallest file that is copied asynchronously."""
+        test_data = os.urandom(ASYNC_COPY_THRESHOLD + 1)
+        self._test_file_put_large(test_data)
 
-        def upload_callable_creator(uploader_class: type) -> typing.Callable[[str, str], None]:
-            def upload_callable(bucket: str, key: str) -> None:
-                tempdir = tempfile.gettempdir()
-                uploader = uploader_class(tempdir, bucket)
-
-                src_data = os.urandom(AWS_MIN_CHUNK_SIZE + 1)
-                with tempfile.NamedTemporaryFile(delete=True) as fh:
-                    fh.write(src_data)
-                    fh.flush()
-
-                    uploader.checksum_and_upload_file(fh.name, key, "text/plain")
-            return upload_callable
-
-        self._test_file_put_large(Replica.aws, self.s3_test_bucket, upload_callable_creator(S3Uploader))
-        self._test_file_put_large(Replica.gcp, self.gs_test_bucket, upload_callable_creator(GSUploader))
-
-    def _test_file_put_large(self, replica: Replica, test_bucket: str, upload_func: typing.Callable[[str, str], None]):
+    def _test_file_put_large(self, src_data: bytes) -> None:
+        replicas: typing.Sequence[typing.Tuple[Replica, typing.Type[Uploader], str]] = [
+            (Replica.aws, S3Uploader, self.s3_test_bucket),
+            (Replica.gcp, GSUploader, self.gs_test_bucket)
+        ]
         src_key = generate_test_key()
-        upload_func(test_bucket, src_key)
+        for replica, uploader_class, bucket in replicas:
+            self._upload_file_to_mock_ingest(uploader_class, bucket, src_key, src_data)
 
-        # We should be able to do this twice (i.e., same payload, different UUIDs).  First time should be asynchronous
-        # since it's new data.  Second time should be synchronous since the data is present, but because S3 does not
-        # make consistency guarantees, a second client might not see that the data is already there.  Therefore, we do
-        # not mandate that it is done synchronously.
-        for expect_async in [True, None]:
-            resp_obj = self.upload_file_wait(
-                f"{replica.storage_schema}://{test_bucket}/{src_key}",
-                replica,
-                expect_async=expect_async)
-            self.assertHeaders(
-                resp_obj.response,
-                {
-                    'content-type': "application/json",
-                }
-            )
-            self.assertIn('version', resp_obj.json)
+            expect_async_results: typing.Tuple[typing.Optional[bool], ...]
+            if len(src_data) > ASYNC_COPY_THRESHOLD:
+                if Replica == Replica.aws:
+                    # We should be able to do this twice (i.e., same payload, different UUIDs).
+                    # First time should be asynchronous since it's new data.  Second time should be
+                    # synchronous since the data is present, but because S3 does not make
+                    # consistency guarantees, a second client might not see that the data is already
+                    # there.  Therefore, we do not mandate that it is done synchronously.
+                    expect_async_results = (True, None)
+                else:
+                    # We should be able to do this twice (i.e., same payload, different UUIDs).
+                    # First time should be asynchronous since it's new data.  Second time should be
+                    # synchronous since the data is present.
+                    expect_async_results = (True, False)
+            else:
+                # We should be able to do this twice (i.e., same payload, different UUIDs).  Neither
+                # time should be asynchronous.
+                expect_async_results = (False, False)
+
+            for ix, expect_async in enumerate(expect_async_results):
+                with self.subTest(f"replica: {replica.name} size: {len(src_data)} round: {ix}"):
+                    resp_obj = self.upload_file_wait(
+                        f"{replica.storage_schema}://{bucket}/{src_key}",
+                        replica,
+                        expect_async=expect_async)
+                    self.assertHeaders(
+                        resp_obj.response,
+                        {
+                            'content-type': "application/json",
+                        }
+                    )
+                    self.assertIn('version', resp_obj.json)
 
     # This is a test specific to AWS since it has separate notion of metadata and tags.
     @testmode.standalone
@@ -415,7 +475,8 @@ class TestFileApi(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
             version = timestamp.strftime("%Y-%m-%dT%H%M%S.%fZ")
 
         urlbuilder = UrlBuilder().set(path='/v1/files/' + file_uuid)
-        urlbuilder.add_query("version", version)
+        if version is not 'missing':
+            urlbuilder.add_query("version", version)
 
         resp_obj = self.assertPutResponse(
             str(urlbuilder),

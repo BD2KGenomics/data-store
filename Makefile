@@ -6,8 +6,9 @@ all: test
 lint:
 	flake8 $(MODULES) chalice/*.py daemons/*/*.py
 
+# TODO: remove --no-strict-optional when the codebase is ready for it.
 mypy:
-	mypy --ignore-missing-imports $(MODULES)
+	mypy --ignore-missing-imports --no-strict-optional $(MODULES)
 
 export DSS_TEST_MODE?=standalone
 
@@ -72,6 +73,9 @@ deploy-daemons-serial:
 deploy-daemons-parallel:
 	$(MAKE) -C daemons deploy-parallel
 
+plan-infra:
+	$(MAKE) -C infra plan-all
+
 deploy-infra:
 	$(MAKE) -C infra apply-all
 
@@ -94,7 +98,7 @@ clean:
 	git clean -Xdf chalice daemons $(MODULES)
 	git clean -df {chalice,daemons/*}/{chalicelib,domovoilib,vendor}
 	git checkout $$(git status --porcelain {chalice,daemons/*}/.chalice/config.json | awk '{print $$2}')
-	-rm -rf .requirements-env
+	-rm -rf .*-env
 	-rm -rf node_modules
 
 refresh_all_requirements:
@@ -106,15 +110,15 @@ refresh_all_requirements:
 
 requirements.txt requirements-dev.txt : %.txt : %.txt.in
 	[ ! -e .requirements-env ] || exit 1
-	virtualenv .requirements-env -p "$(which python)"
-	.requirements-env/bin/pip install -r $@
-	.requirements-env/bin/pip install -r $<
+	virtualenv .$<-env
+	.$<-env/bin/pip install -r $@
+	.$<-env/bin/pip install -r $<
 	echo "# You should not edit this file directly.  Instead, you should edit $<." >| $@
-	.requirements-env/bin/pip freeze >> $@
-	rm -rf .requirements-env
-	scripts/find_missing_wheels.py requirements.txt
+	.$<-env/bin/pip freeze >> $@
+	rm -rf .$<-env
+#	scripts/find_missing_wheels.py requirements.txt
 
 requirements-dev.txt : requirements.txt.in
 
 .PHONY: all lint mypy test safe_test _serial_test all_test integration_test smoketest daemon-import-test $(tests)
-.PHONY: deploy deploy-chalice deploy-daemons
+.PHONY: deploy deploy-chalice deploy-daemons deploy-infra plan-infra

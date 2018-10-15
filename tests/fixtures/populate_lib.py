@@ -101,27 +101,6 @@ def upload(uploader: Uploader):
         "testList/delimiter/test"
     )
 
-    for fname in ["assay.json", "cell.json", "manifest.json", "project.json", "sample.json"]:
-        uploader.checksum_and_upload_file(
-            f"test_api/{fname}",
-            f"fixtures/test_api/bundle/{fname}",
-            "application/json",
-        )
-
-    for fname in ["assay.json", "cell.json", "manifest.json", "project.json", "sample.json"]:
-        uploader.checksum_and_upload_file(
-            f"indexing/bundles/unversioned/smartseq2/paired_ends/{fname}",
-            f"fixtures/indexing/bundles/unversioned/smartseq2/paired_ends/{fname}",
-            "application/json",
-        )
-
-    for fname in ["assay.json", "project.json", "sample.json"]:
-        uploader.checksum_and_upload_file(
-            f"indexing/bundles/v4/smartseq2/paired_ends/{fname}",
-            f"fixtures/indexing/bundles/v4/smartseq2/paired_ends/{fname}",
-            "application/json",
-        )
-
     # Create sample stored bundles with tombstones to test the filtering of deleted bundles
     source_path = "tombstones"
     for fname in [
@@ -139,77 +118,41 @@ def upload(uploader: Uploader):
             "application/json",
         )
 
-    # Create a bundle based on data-bundle-examples/smartseq2/paired_ends.
-    # The files are accessed from the data-bundle-examples subrepository to avoid
-    # duplicating them in our test infrastructure.
-    data_bundle_examples_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                            "datafiles", "indexing", "bundles"))
-
-    def load_example_smartseq2_paired_ends(target_path):
-        for fname in ["assay.json", "project.json", "sample.json"]:
-            source_path = os.path.join(data_bundle_examples_dir, "v3", "smartseq2", "paired_ends")
-            uploader.checksum_and_upload_file(
-                f"{source_path}/{fname}",
-                f"{target_path}/{fname}",
-                "application/json",
-            )
-
-    # TODO (mbaumann) this block was moved to the new path "fixtures/indexing/bundles/v3/smartseq2/paired_ends"
-    # for better organization of multiple schema version test data. Remove this block when
-    # other work in progress has moved to the new code using the new location.
-    #
-    # Create a bundle based on data-bundle-examples/smartseq2/paired_ends.
-    # Then add some non-indexed files for a more complete and realistic bundle test.
-    target_path = "fixtures/smartseq2/paired_ends"
-    load_example_smartseq2_paired_ends(target_path)
-    for fname in ["text_data_file1.txt", "text_data_file2.txt"]:
-        uploader.checksum_and_upload_file(
-            f"indexing/{fname}",
-            f"{target_path}/{fname}",
-            "text/plain",
-        )
-
-    # Create a bundle based on data-bundle-examples/smartseq2/paired_ends.
-    # Then add some non-indexed files for a more complete and realistic bundle test.
-    target_path = "fixtures/indexing/bundles/v3/smartseq2/paired_ends"
-    load_example_smartseq2_paired_ends(target_path)
-    for fname in ["text_data_file1.txt", "text_data_file2.txt"]:
-        uploader.checksum_and_upload_file(
-            f"indexing/{fname}",
-            f"{target_path}/{fname}",
-            "text/plain",
-        )
-
-    # Create a bundle based on data-bundle-examples/smartseq2/paired_ends.
-    # Then add some indexed files that are removed before indexing.
-    target_path = "fixtures/indexing/bundles/v3/smartseq2/paired_ends_extras"
-    load_example_smartseq2_paired_ends(target_path)
-    for fname in ["manifest.json", "cell.json"]:
-        source_path = os.path.join(data_bundle_examples_dir, "v3", "smartseq2", "paired_ends")
+    # Create a bundle representing a restructured bundle layout
+    files = [
+        "cell_suspension_0.json",
+        "dissociation_protocol_0.json",
+        "donor_organism_0.json",
+        "enrichment_protocol_0.json",
+        "library_preparation_protocol_0.json",
+        "links.json",
+        "process_0.json",
+        "process_1.json",
+        "process_2.json",
+        "project_0.json",
+        "sequence_file_0.json",
+        "sequence_file_1.json",
+        "sequencing_protocol_0.json",
+        "specimen_from_organism_0.json",
+    ]
+    source_path = os.path.join(
+        os.path.dirname(__file__),
+        "datafiles",
+        "example_bundle",
+    )
+    target_path = "fixtures/example_bundle"
+    for fname in files:
         uploader.checksum_and_upload_file(
             f"{source_path}/{fname}",
             f"{target_path}/{fname}",
             "application/json",
         )
-
-    # TODO (mbaumann) this block was moved to the new path "fixtures/indexing/bundles/unparseable_indexed_file"
-    # for better organization of the indexing test data. Remove this block when
-    # other work in progress has moved to the new code using the new location.
-
-    # Create an index test bundle that includes a file of with content-type
-    # 'application/json' yet cannot be parsed with json.
-    # Include that file along with other valid files to ensure the
-    # valid files are still processed.
-    # Create a bundle based on data-bundle-examples/smartseq2/paired_ends,
-    # for consistency and ease of verifying valid files.
-    target_path = "fixtures/unparseable_indexed_file"
-    load_example_smartseq2_paired_ends(target_path)
-    fname = "unparseable_json.json"
-    uploader.checksum_and_upload_file(
-        f"indexing/{fname}",
-        f"{target_path}/{fname}",
-        "application/json",
-    )
+    for fname in ["text_data_file1.txt", "text_data_file2.txt"]:
+        uploader.checksum_and_upload_file(
+            f"indexing/{fname}",
+            f"{target_path}/{fname}",
+            "text/plain",
+        )
 
     # Create an index test bundle that includes a file of with content-type
     # 'application/json' yet cannot be parsed with json.
@@ -218,7 +161,12 @@ def upload(uploader: Uploader):
     # Create a bundle based on data-bundle-examples/smartseq2/paired_ends,
     # for consistency and ease of verifying valid files.
     target_path = "fixtures/indexing/bundles/unparseable_indexed_file"
-    load_example_smartseq2_paired_ends(target_path)
+    for fname in files:
+        uploader.checksum_and_upload_file(
+            f"{source_path}/{fname}",
+            f"{target_path}/{fname}",
+            "application/json",
+        )
     fname = "unparseable_json.json"
     uploader.checksum_and_upload_file(
         f"indexing/{fname}",

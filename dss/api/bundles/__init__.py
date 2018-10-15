@@ -1,4 +1,3 @@
-import datetime
 import io
 import os
 import json
@@ -15,9 +14,10 @@ from dss import DSSException, dss_handler
 from dss.config import Config, Replica
 from dss.storage.blobstore import test_object_exists, ObjectTest
 from dss.storage.bundles import get_bundle_manifest
-from dss.storage.checkout import CheckoutError, TokenError, verify_checkout
-from dss.storage.identifiers import TombstoneID, BundleFQID, FileFQID
-from dss.storage.hcablobstore import BundleFileMetadata, BundleMetadata, FileMetadata, compose_blob_key
+from dss.storage.checkout import CheckoutError, TokenError
+from dss.storage.checkout.bundle import get_dst_bundle_prefix, verify_checkout
+from dss.storage.identifiers import BundleTombstoneID, BundleFQID, FileFQID
+from dss.storage.hcablobstore import BundleFileMetadata, BundleMetadata, FileMetadata
 from dss.util import UrlBuilder
 from dss.util.version import datetime_to_version_format
 
@@ -82,13 +82,21 @@ def get(
         if directurls:
             file_version['url'] = str(UrlBuilder().set(
                 scheme=_replica.storage_schema,
-                netloc=_replica.bucket,
-                path=compose_blob_key(file),
+                netloc=_replica.checkout_bucket,
+                path="{}/{}".format(
+                    get_dst_bundle_prefix(uuid, bundle_metadata[BundleMetadata.VERSION]),
+                    file[BundleFileMetadata.NAME],
+                ),
             ))
         elif presignedurls:
             handle = Config.get_blobstore_handle(_replica)
             file_version['url'] = handle.generate_presigned_GET_url(
-                _replica.bucket, compose_blob_key(file))
+                _replica.checkout_bucket,
+                "{}/{}".format(
+                    get_dst_bundle_prefix(uuid, bundle_metadata[BundleMetadata.VERSION]),
+                    file[BundleFileMetadata.NAME],
+                ),
+            )
         filesresponse.append(file_version)
 
     return dict(
@@ -112,13 +120,16 @@ def post():
 
 
 @dss_handler
-def put(uuid: str, replica: str, json_request_body: dict, version: str = None):
+def put(uuid: str, replica: str, json_request_body: dict, version: str):
     uuid = uuid.lower()
-    if version is not None:
-        # convert it to date-time so we can format exactly as the system requires (with microsecond precision)
+    # convert it to date-time so we can format exactly as the system requires (with microsecond precision)
+    try:
         timestamp = iso8601.parse_date(version)
-    else:
-        timestamp = datetime.datetime.utcnow()
+    except iso8601.ParseError:
+        raise DSSException(
+            requests.codes.bad_request,
+            "illegal_version",
+            f"version should be an rfc3339-compliant timestamp")
     version = datetime_to_version_format(timestamp)
 
     handle = Config.get_blobstore_handle(Replica[replica])
@@ -128,7 +139,19 @@ def put(uuid: str, replica: str, json_request_body: dict, version: str = None):
     bundle_manifest_key = BundleFQID(uuid=uuid, version=version).to_key()
 
     # decode the list of files.
-    files = [{'user_supplied_metadata': file} for file in json_request_body['files']]
+    files = list()
+    filenames: typing.Set[str] = set()
+    for file in json_request_body['files']:
+        name = file['name']
+        if name in filenames:
+            raise DSSException(
+                requests.codes.bad_request,
+                "duplicate_filename",
+                f"Duplicate file name detected: {name}. This test fails on the first occurance. Please check bundle "
+                "layout to ensure no duplicated file names are present."
+            )
+        filenames.add(name)
+        files.append({'user_supplied_metadata': file})
 
     time_left = nestedcontext.inject("time_left")
 
@@ -160,7 +183,7 @@ def put(uuid: str, replica: str, json_request_body: dict, version: str = None):
             continue
 
         raise DSSException(
-            requests.codes.conflict,
+            requests.codes.bad_request,
             "file_missing",
             f"Could not find file {missing_file_user_metadata['uuid']}/{missing_file_user_metadata['version']}."
         )
@@ -226,7 +249,7 @@ def delete(uuid: str, replica: str, json_request_body: dict, version: str=None):
     uuid = uuid.lower()
     version = datetime_to_version_format(iso8601.parse_date(version)) if version else None
 
-    tombstone_id = TombstoneID(uuid=uuid, version=version)
+    tombstone_id = BundleTombstoneID(uuid=uuid, version=version)
     bundle_prefix = tombstone_id.to_key_prefix()
     tombstone_object_data = _create_tombstone_data(
         email=email,
