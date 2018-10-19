@@ -37,7 +37,9 @@ class TestCollections(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
     @staticmethod
     def upload_file(app, contents):
         s3_test_bucket = get_env("DSS_S3_BUCKET_TEST")
+        print(s3_test_bucket)
         src_key = generate_test_key()
+        print(src_key)
         s3 = boto3.resource('s3')
         encoded = json.dumps(contents).encode()
         chunk_size = get_s3_multipart_chunk_size(len(encoded))
@@ -57,9 +59,12 @@ class TestCollections(unittest.TestCase, DSSAssertMixin, DSSUploadMixin):
         urlbuilder = UrlBuilder().set(path='/v1/files/' + file_uuid)
         urlbuilder.add_query("version", version)
 
+        print(str(urlbuilder))
+        print(dict(creator_uid=0, source_url=source_url))
         resp_obj = app.put(str(urlbuilder),
                            json=dict(creator_uid=0,
-                           source_url=source_url))
+                           source_url=source_url),
+                           headers=get_auth_header(authorized=True))
         resp_obj.raise_for_status()
         return file_uuid, resp_obj.json()["version"]
 
