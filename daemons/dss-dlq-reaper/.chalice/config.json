@@ -6,7 +6,7 @@
     "commonsdev": {
       "api_gateway_stage": "commonsdev",
       "tags": {
-        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-12-g64c7dbc-2018-09-28-14-08-36.deploy"
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-7-g125a074-2018-10-12-00-19-22.deploy"
       },
       "environment_variables": {
         "ADMIN_USER_EMAILS": "",
@@ -30,7 +30,7 @@
     "commonsstaging": {
       "api_gateway_stage": "commonsstaging",
       "tags": {
-        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-5.local-integration-2018-07-01-16-41-28.release-12-g64c7dbc-2018-10-01-01-02-55.deploy"
+        "DSS_DEPLOY_ORIGIN": "mbaumann-Michaels-MacBook-Pro-6.local-integration-2018-07-01-16-41-28.release-7-g125a074-2018-10-17-08-17-34.deploy"
       },
       "environment_variables": {
         "ADMIN_USER_EMAILS": "",
